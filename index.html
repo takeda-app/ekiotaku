@@ -184,8 +184,9 @@ body {
 .station-name {
   font-size: 52px;
   font-weight: 700;
-  line-height: 1.1;
-  word-break: keep-all;
+  line-height: 1.2;
+  word-break: break-all;
+  overflow-wrap: break-word;
 }
 .choices {
   display: flex;
@@ -612,7 +613,10 @@ function nextQuestion() {
   usedIds.add(pick.i);
 
   currentAnswer = pick.p;
-  document.getElementById('station-name').textContent = pick.s;
+  const nameEl = document.getElementById('station-name');
+  nameEl.textContent = pick.s;
+  const len = pick.s.length;
+  nameEl.style.fontSize = len <= 4 ? '52px' : len <= 6 ? '44px' : len <= 8 ? '36px' : '28px';
   document.getElementById('score-disp').textContent = score;
 
   const choices = pickChoices(pick.p);

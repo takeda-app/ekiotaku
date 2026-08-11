@@ -752,16 +752,19 @@ function loadRanking() {
     return;
   }
   list.innerHTML = '<div class="rank-loading">読み込み中...</div>';
-  db.ref('rankings').orderByChild('score').limitToLast(20)
-    .once('value').then(snap => {
+  db.ref('rankings').once('value').then(snap => {
       const items = [];
-      snap.forEach(c => items.push(c.val()));
+      snap.forEach(c => {
+        const v = c.val();
+        if (v && typeof v.score === 'number' && v.name) items.push(v);
+      });
       items.sort((a, b) => b.score - a.score || a.ts - b.ts);
-      if (items.length === 0) {
+      const top20 = items.slice(0, 20);
+      if (top20.length === 0) {
         list.innerHTML = '<div class="rank-loading">まだ記録がありません</div>';
         return;
       }
-      list.innerHTML = items.map((item, idx) => {
+      list.innerHTML = top20.map((item, idx) => {
         const posClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : '';
         const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1);
         return `<div class="rank-item">
@@ -777,7 +780,7 @@ function loadRanking() {
 
 /* ══════════════ SNS SHARE ══════════════ */
 function shareX() {
-  const text = `駅オタクで${score}問正解しました！🚃\n\n1問5秒・2ミスでゲームオーバーの都道府県当てクイズ\nあなたは何問いける？\n\n#駅オタク #地理クイズ #鉄道好きと繋がりたい`;
+  const text = `駅オタク　クイズアプリで${score}問正解しました！🚃\nhttps://takeda-app.github.io/ekiotaku/\n#駅オタク #地理クイズ #鉄道好きと繋がりたい`;
   const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text);
   window.open(url, '_blank');
 }

@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>駅オタク — 都道府県当てクイズ</title>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0d1b2e;
+  --surface: #162032;
+  --card:    #1e3a5f;
+  --blue:    #3b82f6;
+  --blue2:   #1d4ed8;
+  --white:   #f1f5f9;
+  --gray:    #94a3b8;
+  --gray2:   #475569;
+  --green:   #22c55e;
+  --green-bg:#14532d;
+  --red:     #ef4444;
+  --red-bg:  #450a0a;
+  --yellow:  #eab308;
+  --font:    'Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;
+}
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--white);
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+#app {
+  width: 100%;
+  max-width: 480px;
+  min-height: 100dvh;
+  padding: 0 0 40px;
+  position: relative;
+}
+.accent-bar {
+  height: 5px;
+  background: var(--blue);
+  border-radius: 0 0 3px 3px;
+}
+
+/* ── SCREENS ── */
+.screen { display: none; padding: 24px 20px; }
+.screen.active { display: block; }
+
+/* ── TITLE ── */
+.title-wrap {
+  text-align: center;
+  padding-top: 60px;
+}
+.logo-mark {
+  font-size: 64px;
+  margin-bottom: 4px;
+  line-height: 1;
+}
+.logo-title {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: var(--white);
+}
+.logo-sub {
+  font-size: 13px;
+  color: var(--gray);
+  letter-spacing: 2px;
+  margin-top: 6px;
+}
+.best-badge {
+  display: inline-block;
+  background: var(--card);
+  border: 1px solid var(--blue);
+  border-radius: 20px;
+  padding: 6px 20px;
+  font-size: 13px;
+  color: var(--gray);
+  margin-top: 28px;
+}
+.best-badge span { color: var(--blue); font-weight: 700; font-size: 18px; }
+.rule-box {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin: 28px 0;
+  text-align: left;
+}
+.rule-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--gray);
+  padding: 4px 0;
+}
+.rule-icon { font-size: 18px; }
+.btn-start {
+  width: 100%;
+  padding: 18px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  letter-spacing: 3px;
+  transition: background .15s;
+}
+.btn-start:hover { background: var(--blue2); }
+.btn-ranking-link {
+  display: block;
+  text-align: center;
+  color: var(--gray);
+  font-size: 13px;
+  margin-top: 16px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ── QUIZ ── */
+.quiz-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.score-label {
+  font-size: 13px;
+  color: var(--gray);
+}
+.score-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--white);
+}
+.miss-icons {
+  display: flex;
+  gap: 8px;
+}
+.miss-dot {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--gray2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  transition: background .2s;
+}
+.miss-dot.used { background: var(--red); }
+.timer-wrap {
+  position: relative;
+  height: 8px;
+  background: var(--gray2);
+  border-radius: 4px;
+  margin-bottom: 36px;
+  overflow: hidden;
+}
+.timer-bar {
+  position: absolute;
+  left: 0; top: 0; height: 100%;
+  border-radius: 4px;
+  transition: width .1s linear, background .3s;
+  background: var(--blue);
+}
+.station-card {
+  text-align: center;
+  padding: 32px 16px 28px;
+  background: var(--surface);
+  border-radius: 16px;
+  margin-bottom: 24px;
+}
+.station-label {
+  font-size: 12px;
+  color: var(--gray);
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+}
+.station-name {
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1.1;
+  word-break: keep-all;
+}
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.choice-btn {
+  width: 100%;
+  padding: 18px 12px;
+  background: var(--card);
+  color: var(--white);
+  border: 2px solid var(--blue);
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .1s, border-color .1s, color .1s, transform .08s;
+  font-family: var(--font);
+}
+.choice-btn:hover:not(:disabled) {
+  background: #254870;
+  transform: translateY(-1px);
+}
+.choice-btn.correct {
+  background: var(--green-bg);
+  border-color: var(--green);
+  color: var(--green);
+}
+.choice-btn.wrong {
+  background: var(--red-bg);
+  border-color: var(--red);
+  color: var(--red);
+}
+.choice-btn:disabled {
+  opacity: .45;
+  cursor: default;
+  border-color: var(--gray2);
+}
+.feedback-banner {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity .2s;
+}
+.feedback-banner.show { opacity: 1; }
+.feedback-banner.ok  { background: var(--green-bg); border: 1.5px solid var(--green); color: var(--green); }
+.feedback-banner.ng  { background: var(--red-bg);   border: 1.5px solid var(--red);   color: var(--red); }
+
+/* ── RESULT ── */
+.result-header {
+  text-align: center;
+  padding: 36px 0 20px;
+}
+.result-label {
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--blue);
+  margin-bottom: 8px;
+}
+.result-score {
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 1;
+}
+.result-unit {
+  font-size: 22px;
+  color: var(--gray);
+  margin-top: 4px;
+}
+.result-best {
+  display: inline-block;
+  background: var(--card);
+  border: 1px solid var(--blue);
+  border-radius: 20px;
+  padding: 5px 16px;
+  font-size: 13px;
+  color: var(--gray);
+  margin-top: 12px;
+}
+.result-best.new { border-color: var(--yellow); color: var(--yellow); }
+.divider {
+  height: 1px;
+  background: var(--card);
+  margin: 20px 0;
+}
+/* ── NICKNAME ── */
+.nickname-area {
+  margin-bottom: 16px;
+}
+.nickname-area label {
+  font-size: 13px;
+  color: var(--gray);
+  display: block;
+  margin-bottom: 6px;
+}
+.nickname-area input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1.5px solid var(--card);
+  border-radius: 10px;
+  color: var(--white);
+  font-size: 16px;
+  font-family: var(--font);
+  outline: none;
+  transition: border-color .15s;
+}
+.nickname-area input:focus { border-color: var(--blue); }
+.btn-submit-rank {
+  width: 100%;
+  padding: 14px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 10px;
+  font-family: var(--font);
+  transition: background .15s;
+}
+.btn-submit-rank:hover { background: var(--blue2); }
+.btn-submit-rank:disabled { opacity: .5; cursor: default; }
+.rank-submitted {
+  text-align: center;
+  font-size: 14px;
+  color: var(--green);
+  padding: 10px;
+  display: none;
+}
+
+/* ── SNS SHARE ── */
+.btn-share {
+  width: 100%;
+  padding: 16px;
+  background: #000;
+  color: #fff;
+  border: 1.5px solid #333;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font);
+  margin-bottom: 10px;
+}
+.x-logo {
+  font-size: 18px;
+  font-weight: 900;
+}
+.btn-retry {
+  width: 100%;
+  padding: 16px;
+  background: transparent;
+  color: var(--blue);
+  border: 2px solid var(--blue);
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font);
+  margin-bottom: 10px;
+  transition: background .15s;
+}
+.btn-retry:hover { background: var(--card); }
+
+/* ── RANKING ── */
+.rank-screen-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.btn-back {
+  background: none;
+  border: none;
+  color: var(--gray);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px;
+}
+.rank-title {
+  font-size: 20px;
+  font-weight: 700;
+}
+.rank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rank-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.rank-pos {
+  font-size: 16px;
+  font-weight: 700;
+  width: 28px;
+  text-align: center;
+  color: var(--gray);
+}
+.rank-pos.gold   { color: #fbbf24; }
+.rank-pos.silver { color: #94a3b8; }
+.rank-pos.bronze { color: #b45309; }
+.rank-name { flex: 1; font-size: 16px; }
+.rank-score {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--blue);
+}
+.rank-score-unit { font-size: 12px; color: var(--gray); }
+.rank-loading { text-align: center; color: var(--gray); padding: 40px; }
+.firebase-note {
+  background: var(--surface);
+  border: 1.5px dashed var(--gray2);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--gray);
+  margin-bottom: 20px;
+  line-height: 1.7;
+}
+.firebase-note a { color: var(--blue); }
+</style>
+</head>
+<body>
+<div id="app">
+<div class="accent-bar"></div>
+
+<!-- ── TITLE SCREEN ── -->
+<div class="screen active" id="screen-title">
+  <div class="title-wrap">
+    <div class="logo-mark">🚃</div>
+    <div class="logo-title">駅オタク</div>
+    <div class="logo-sub">都道府県当てクイズ</div>
+    <div class="best-badge">自己ベスト&nbsp;<span id="best-disp">—</span>&nbsp;問</div>
+  </div>
+  <div class="rule-box">
+    <div class="rule-item"><span class="rule-icon">⏱</span>1問5秒のカウントダウン</div>
+    <div class="rule-item"><span class="rule-icon">❌</span>2ミスでゲームオーバー</div>
+    <div class="rule-item"><span class="rule-icon">🗾</span>全国204駅・47都道府県</div>
+    <div class="rule-item"><span class="rule-icon">🏆</span>ネットランキング対応</div>
+  </div>
+  <button class="btn-start" onclick="startGame()">S T A R T</button>
+  <span class="btn-ranking-link" onclick="showRanking()">🏆 ランキングを見る</span>
+</div>
+
+<!-- ── QUIZ SCREEN ── -->
+<div class="screen" id="screen-quiz">
+  <div class="quiz-header">
+    <div>
+      <div class="score-label">正解数</div>
+      <div class="score-num" id="score-disp">0</div>
+    </div>
+    <div class="miss-icons">
+      <div class="miss-dot" id="miss0">✕</div>
+      <div class="miss-dot" id="miss1">✕</div>
+    </div>
+  </div>
+  <div class="timer-wrap">
+    <div class="timer-bar" id="timer-bar"></div>
+  </div>
+  <div class="station-card">
+    <div class="station-label">この駅はどこ？</div>
+    <div class="station-name" id="station-name">—</div>
+  </div>
+  <div class="choices" id="choices"></div>
+  <div class="feedback-banner" id="feedback"></div>
+</div>
+
+<!-- ── RESULT SCREEN ── -->
+<div class="screen" id="screen-result">
+  <div class="result-header">
+    <div class="result-label">R E S U L T</div>
+    <div class="result-score" id="result-score">0</div>
+    <div class="result-unit">問 正解</div>
+    <div class="result-best" id="result-best">自己ベスト —問</div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="firebase-note" id="firebase-note" style="display:none">
+    ⚠️ Firebase未設定のためランキング投稿は無効です。<br>
+    設定方法は付属の <b>README.md</b> を参照してください。
+  </div>
+
+  <div class="nickname-area" id="nickname-area">
+    <label>ニックネーム（ランキング投稿用）</label>
+    <input type="text" id="nickname-input" maxlength="12" placeholder="例: 鉄道マスター">
+  </div>
+  <button class="btn-submit-rank" id="btn-submit-rank" onclick="submitRanking()">🏆 ランキングに投稿</button>
+  <div class="rank-submitted" id="rank-submitted">✓ ランキングに投稿しました！</div>
+
+  <div class="divider"></div>
+  <button class="btn-share" onclick="shareX()">
+    <span class="x-logo">𝕏</span> ポストする
+  </button>
+  <button class="btn-retry" onclick="startGame()">もう一度プレイ</button>
+  <button class="btn-retry" onclick="showTitle()" style="color:var(--gray);border-color:var(--gray2)">タイトルへ</button>
+</div>
+
+<!-- ── RANKING SCREEN ── -->
+<div class="screen" id="screen-ranking">
+  <div class="rank-screen-header">
+    <button class="btn-back" onclick="showTitle()">←</button>
+    <div class="rank-title">🏆 全国ランキング</div>
+  </div>
+  <div class="rank-list" id="rank-list">
+    <div class="rank-loading">読み込み中...</div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<script>
+/* ══════════════════════════════════════════
+   ★ Firebase 設定 — ここを書き換えてください ★
+   FirebaseコンソールのプロジェクトのAPIキーをコピー&ペーストする
+   ══════════════════════════════════════════ */
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyDE6Ac_X4AsdAEUdZKc942ddGOF8i25P3E",
+  authDomain:        "ekiotaku-6dab9.firebaseapp.com",
+  databaseURL:       "https://ekiotaku-6dab9-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "ekiotaku-6dab9",
+  storageBucket:     "ekiotaku-6dab9.firebasestorage.app",
+  messagingSenderId: "637337385483",
+  appId:             "1:637337385483:web:9f84dac38b6771bc34250e"
+};
+
+/* ══════════════ DATA ══════════════ */
+const STATIONS = [{"s": "札幌駅", "p": "北海道"}, {"s": "函館駅", "p": "北海道"}, {"s": "旭川駅", "p": "北海道"}, {"s": "小樽駅", "p": "北海道"}, {"s": "釧路駅", "p": "北海道"}, {"s": "新千歳空港駅", "p": "北海道"}, {"s": "青森駅", "p": "青森県"}, {"s": "弘前駅", "p": "青森県"}, {"s": "八戸駅", "p": "青森県"}, {"s": "盛岡駅", "p": "岩手県"}, {"s": "一ノ関駅", "p": "岩手県"}, {"s": "仙台駅", "p": "宮城県"}, {"s": "石巻駅", "p": "宮城県"}, {"s": "秋田駅", "p": "秋田県"}, {"s": "横手駅", "p": "秋田県"}, {"s": "山形駅", "p": "山形県"}, {"s": "米沢駅", "p": "山形県"}, {"s": "鶴岡駅", "p": "山形県"}, {"s": "福島駅", "p": "福島県"}, {"s": "郡山駅", "p": "福島県"}, {"s": "会津若松駅", "p": "福島県"}, {"s": "いわき駅", "p": "福島県"}, {"s": "水戸駅", "p": "茨城県"}, {"s": "つくば駅", "p": "茨城県"}, {"s": "土浦駅", "p": "茨城県"}, {"s": "宇都宮駅", "p": "栃木県"}, {"s": "日光駅", "p": "栃木県"}, {"s": "那須塩原駅", "p": "栃木県"}, {"s": "高崎駅", "p": "群馬県"}, {"s": "前橋駅", "p": "群馬県"}, {"s": "草津温泉駅", "p": "群馬県"}, {"s": "大宮駅", "p": "埼玉県"}, {"s": "浦和駅", "p": "埼玉県"}, {"s": "川越駅", "p": "埼玉県"}, {"s": "所沢駅", "p": "埼玉県"}, {"s": "千葉駅", "p": "千葉県"}, {"s": "船橋駅", "p": "千葉県"}, {"s": "柏駅", "p": "千葉県"}, {"s": "成田空港駅", "p": "千葉県"}, {"s": "東京駅", "p": "東京都"}, {"s": "新宿駅", "p": "東京都"}, {"s": "渋谷駅", "p": "東京都"}, {"s": "池袋駅", "p": "東京都"}, {"s": "品川駅", "p": "東京都"}, {"s": "上野駅", "p": "東京都"}, {"s": "秋葉原駅", "p": "東京都"}, {"s": "新橋駅", "p": "東京都"}, {"s": "六本木駅", "p": "東京都"}, {"s": "浅草駅", "p": "東京都"}, {"s": "吉祥寺駅", "p": "東京都"}, {"s": "立川駅", "p": "東京都"}, {"s": "八王子駅", "p": "東京都"}, {"s": "横浜駅", "p": "神奈川県"}, {"s": "川崎駅", "p": "神奈川県"}, {"s": "鎌倉駅", "p": "神奈川県"}, {"s": "小田原駅", "p": "神奈川県"}, {"s": "藤沢駅", "p": "神奈川県"}, {"s": "新潟駅", "p": "新潟県"}, {"s": "長岡駅", "p": "新潟県"}, {"s": "上越妙高駅", "p": "新潟県"}, {"s": "富山駅", "p": "富山県"}, {"s": "高岡駅", "p": "富山県"}, {"s": "金沢駅", "p": "石川県"}, {"s": "小松駅", "p": "石川県"}, {"s": "福井駅", "p": "福井県"}, {"s": "敦賀駅", "p": "福井県"}, {"s": "甲府駅", "p": "山梨県"}, {"s": "富士山駅", "p": "山梨県"}, {"s": "長野駅", "p": "長野県"}, {"s": "松本駅", "p": "長野県"}, {"s": "軽井沢駅", "p": "長野県"}, {"s": "岐阜駅", "p": "岐阜県"}, {"s": "高山駅", "p": "岐阜県"}, {"s": "大垣駅", "p": "岐阜県"}, {"s": "静岡駅", "p": "静岡県"}, {"s": "浜松駅", "p": "静岡県"}, {"s": "熱海駅", "p": "静岡県"}, {"s": "富士駅", "p": "静岡県"}, {"s": "名古屋駅", "p": "愛知県"}, {"s": "豊橋駅", "p": "愛知県"}, {"s": "岡崎駅", "p": "愛知県"}, {"s": "津駅", "p": "三重県"}, {"s": "四日市駅", "p": "三重県"}, {"s": "伊勢市駅", "p": "三重県"}, {"s": "鳥羽駅", "p": "三重県"}, {"s": "大津駅", "p": "滋賀県"}, {"s": "彦根駅", "p": "滋賀県"}, {"s": "京都駅", "p": "京都府"}, {"s": "嵐山駅", "p": "京都府"}, {"s": "祇園四条駅", "p": "京都府"}, {"s": "舞鶴駅", "p": "京都府"}, {"s": "大阪駅", "p": "大阪府"}, {"s": "梅田駅", "p": "大阪府"}, {"s": "難波駅", "p": "大阪府"}, {"s": "天王寺駅", "p": "大阪府"}, {"s": "新大阪駅", "p": "大阪府"}, {"s": "堺駅", "p": "大阪府"}, {"s": "神戸駅", "p": "兵庫県"}, {"s": "三宮駅", "p": "兵庫県"}, {"s": "姫路駅", "p": "兵庫県"}, {"s": "西宮駅", "p": "兵庫県"}, {"s": "奈良駅", "p": "奈良県"}, {"s": "橿原神宮前駅", "p": "奈良県"}, {"s": "和歌山駅", "p": "和歌山県"}, {"s": "白浜駅", "p": "和歌山県"}, {"s": "鳥取駅", "p": "鳥取県"}, {"s": "米子駅", "p": "鳥取県"}, {"s": "松江駅", "p": "島根県"}, {"s": "出雲市駅", "p": "島根県"}, {"s": "岡山駅", "p": "岡山県"}, {"s": "倉敷駅", "p": "岡山県"}, {"s": "広島駅", "p": "広島県"}, {"s": "尾道駅", "p": "広島県"}, {"s": "福山駅", "p": "広島県"}, {"s": "宮島口駅", "p": "広島県"}, {"s": "下関駅", "p": "山口県"}, {"s": "山口駅", "p": "山口県"}, {"s": "徳山駅", "p": "山口県"}, {"s": "徳島駅", "p": "徳島県"}, {"s": "鳴門駅", "p": "徳島県"}, {"s": "高松駅", "p": "香川県"}, {"s": "丸亀駅", "p": "香川県"}, {"s": "松山駅", "p": "愛媛県"}, {"s": "今治駅", "p": "愛媛県"}, {"s": "高知駅", "p": "高知県"}, {"s": "博多駅", "p": "福岡県"}, {"s": "小倉駅", "p": "福岡県"}, {"s": "天神駅", "p": "福岡県"}, {"s": "久留米駅", "p": "福岡県"}, {"s": "佐賀駅", "p": "佐賀県"}, {"s": "唐津駅", "p": "佐賀県"}, {"s": "長崎駅", "p": "長崎県"}, {"s": "佐世保駅", "p": "長崎県"}, {"s": "ハウステンボス駅", "p": "長崎県"}, {"s": "熊本駅", "p": "熊本県"}, {"s": "阿蘇駅", "p": "熊本県"}, {"s": "大分駅", "p": "大分県"}, {"s": "別府駅", "p": "大分県"}, {"s": "湯布院駅", "p": "大分県"}, {"s": "宮崎駅", "p": "宮崎県"}, {"s": "日南駅", "p": "宮崎県"}, {"s": "鹿児島中央駅", "p": "鹿児島県"}, {"s": "指宿駅", "p": "鹿児島県"}, {"s": "那覇空港駅", "p": "沖縄県"}, {"s": "首里駅", "p": "沖縄県"}, {"s": "新横浜駅", "p": "神奈川県"}, {"s": "横須賀駅", "p": "神奈川県"}, {"s": "町田駅", "p": "東京都"}, {"s": "中野駅", "p": "東京都"}, {"s": "恵比寿駅", "p": "東京都"}, {"s": "原宿駅", "p": "東京都"}, {"s": "品川シーサイド駅", "p": "東京都"}, {"s": "お台場海浜公園駅", "p": "東京都"}, {"s": "豊洲駅", "p": "東京都"}, {"s": "日暮里駅", "p": "東京都"}, {"s": "両国駅", "p": "東京都"}, {"s": "有楽町駅", "p": "東京都"}, {"s": "神田駅", "p": "東京都"}, {"s": "四ツ谷駅", "p": "東京都"}, {"s": "赤羽駅", "p": "東京都"}, {"s": "蒲田駅", "p": "東京都"}, {"s": "大崎駅", "p": "東京都"}, {"s": "代々木駅", "p": "東京都"}, {"s": "御茶ノ水駅", "p": "東京都"}, {"s": "飯田橋駅", "p": "東京都"}, {"s": "水道橋駅", "p": "東京都"}, {"s": "東京スカイツリー駅", "p": "東京都"}, {"s": "押上駅", "p": "東京都"}, {"s": "門前仲町駅", "p": "東京都"}, {"s": "銀座駅", "p": "東京都"}, {"s": "日本橋駅", "p": "東京都"}, {"s": "六甲道駅", "p": "兵庫県"}, {"s": "宝塚駅", "p": "兵庫県"}, {"s": "明石駅", "p": "兵庫県"}, {"s": "加古川駅", "p": "兵庫県"}, {"s": "天橋立駅", "p": "京都府"}, {"s": "福知山駅", "p": "京都府"}, {"s": "草津駅", "p": "滋賀県"}, {"s": "近江八幡駅", "p": "滋賀県"}, {"s": "栗東駅", "p": "滋賀県"}, {"s": "桑名駅", "p": "三重県"}, {"s": "松阪駅", "p": "三重県"}, {"s": "鈴鹿サーキット稲生駅", "p": "三重県"}, {"s": "郡上八幡駅", "p": "岐阜県"}, {"s": "下呂駅", "p": "岐阜県"}, {"s": "御殿場駅", "p": "静岡県"}, {"s": "三島駅", "p": "静岡県"}, {"s": "掛川駅", "p": "静岡県"}, {"s": "半田駅", "p": "愛知県"}, {"s": "犬山駅", "p": "愛知県"}, {"s": "一宮駅", "p": "愛知県"}, {"s": "瀬戸市駅", "p": "愛知県"}, {"s": "南知多駅", "p": "愛知県"}, {"s": "木更津駅", "p": "千葉県"}, {"s": "鴨川駅", "p": "千葉県"}, {"s": "銚子駅", "p": "千葉県"}, {"s": "大宮公園駅", "p": "埼玉県"}, {"s": "秩父駅", "p": "埼玉県"}, {"s": "川口駅", "p": "埼玉県"}, {"s": "館林駅", "p": "群馬県"}, {"s": "桐生駅", "p": "群馬県"}, {"s": "那珂湊駅", "p": "茨城県"}, {"s": "笠間駅", "p": "茨城県"}, {"s": "日立駅", "p": "茨城県"}];
+const REGIONS  = {"北海道": "北海道", "青森県": "東北", "岩手県": "東北", "宮城県": "東北", "秋田県": "東北", "山形県": "東北", "福島県": "東北", "茨城県": "関東", "栃木県": "関東", "群馬県": "関東", "埼玉県": "関東", "千葉県": "関東", "東京都": "関東", "神奈川県": "関東", "新潟県": "中部", "富山県": "中部", "石川県": "中部", "福井県": "中部", "山梨県": "中部", "長野県": "中部", "岐阜県": "中部", "静岡県": "中部", "愛知県": "中部", "三重県": "近畿", "滋賀県": "近畿", "京都府": "近畿", "大阪府": "近畿", "兵庫県": "近畿", "奈良県": "近畿", "和歌山県": "近畿", "鳥取県": "中国", "島根県": "中国", "岡山県": "中国", "広島県": "中国", "山口県": "中国", "徳島県": "四国", "香川県": "四国", "愛媛県": "四国", "高知県": "四国", "福岡県": "九州", "佐賀県": "九州", "長崎県": "九州", "熊本県": "九州", "大分県": "九州", "宮崎県": "九州", "鹿児島県": "九州", "沖縄県": "九州"};
+const ALL_PREFS = [...new Set(STATIONS.map(s => s.p))];
+
+/* ══════════════ STATE ══════════════ */
+let score = 0, miss = 0, usedIds = new Set();
+let timerInterval = null, timeLeft = 0;
+let currentAnswer = '';
+let fbReady = false;
+let db = null;
+
+/* ══════════════ FIREBASE INIT ══════════════ */
+function initFirebase() {
+  try {
+    if (FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY') return;
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    fbReady = true;
+  } catch(e) { console.warn('Firebase init error', e); }
+}
+initFirebase();
+
+/* ══════════════ UTILS ══════════════ */
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function pickChoices(correct) {
+  const region = REGIONS[correct];
+  const sameRegion = ALL_PREFS.filter(p => p !== correct && REGIONS[p] === region);
+  const others     = ALL_PREFS.filter(p => p !== correct && REGIONS[p] !== region);
+  const candidates = shuffle([...sameRegion, ...shuffle(others)]).slice(0, 3);
+  return shuffle([correct, ...candidates]);
+}
+
+/* ══════════════ SCREENS ══════════════ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+function showTitle() {
+  clearTimer();
+  updateBestDisp();
+  showScreen('title');
+}
+function showRanking() {
+  showScreen('ranking');
+  loadRanking();
+}
+
+/* ══════════════ BEST SCORE ══════════════ */
+function getBest() { return parseInt(localStorage.getItem('ekiotaku_best') || '0'); }
+function setBest(v) { localStorage.setItem('ekiotaku_best', v); }
+function updateBestDisp() {
+  const b = getBest();
+  document.getElementById('best-disp').textContent = b || '—';
+}
+
+/* ══════════════ GAME ══════════════ */
+function startGame() {
+  score = 0; miss = 0; usedIds = new Set();
+  document.getElementById('miss0').classList.remove('used');
+  document.getElementById('miss1').classList.remove('used');
+  showScreen('quiz');
+  nextQuestion();
+}
+
+function nextQuestion() {
+  clearTimer();
+  const feedback = document.getElementById('feedback');
+  feedback.className = 'feedback-banner';
+  feedback.textContent = '';
+
+  // 都道府県ごとに均等になるようにシャッフル後抽出
+  const available = STATIONS.filter((_, i) => !usedIds.has(i));
+  if (available.length === 0) { usedIds.clear(); }
+  const pool = STATIONS.map((s, i) => ({...s, i})).filter(s => !usedIds.has(s.i));
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  usedIds.add(pick.i);
+
+  currentAnswer = pick.p;
+  document.getElementById('station-name').textContent = pick.s;
+  document.getElementById('score-disp').textContent = score;
+
+  const choices = pickChoices(pick.p);
+  const container = document.getElementById('choices');
+  container.innerHTML = '';
+  choices.forEach(pref => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = pref;
+    btn.onclick = () => answer(pref, btn);
+    container.appendChild(btn);
+  });
+
+  startTimer();
+}
+
+function startTimer() {
+  timeLeft = 50; // 50 ticks = 5秒
+  updateTimerBar();
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerBar();
+    if (timeLeft <= 0) {
+      clearTimer();
+      onTimeout();
+    }
+  }, 100);
+}
+function clearTimer() { clearInterval(timerInterval); timerInterval = null; }
+function updateTimerBar() {
+  const bar = document.getElementById('timer-bar');
+  const ratio = timeLeft / 50;
+  bar.style.width = (ratio * 100) + '%';
+  bar.style.background = ratio > 0.5 ? 'var(--blue)' : ratio > 0.25 ? 'var(--yellow)' : 'var(--red)';
+}
+
+function disableChoices() {
+  document.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+}
+
+function answer(pref, btn) {
+  clearTimer();
+  disableChoices();
+  const feedback = document.getElementById('feedback');
+  if (pref === currentAnswer) {
+    score++;
+    btn.classList.add('correct');
+    feedback.textContent = '✓ 正解！';
+    feedback.className = 'feedback-banner ok show';
+    setTimeout(nextQuestion, 900);
+  } else {
+    btn.classList.add('wrong');
+    // 正解を緑表示
+    document.querySelectorAll('.choice-btn').forEach(b => {
+      if (b.textContent === currentAnswer) b.classList.add('correct');
+    });
+    feedback.textContent = '✗ 不正解 … 正解は ' + currentAnswer;
+    feedback.className = 'feedback-banner ng show';
+    onMiss();
+  }
+}
+
+function onTimeout() {
+  disableChoices();
+  document.querySelectorAll('.choice-btn').forEach(b => {
+    if (b.textContent === currentAnswer) b.classList.add('correct');
+  });
+  const feedback = document.getElementById('feedback');
+  feedback.textContent = '⏱ 時間切れ！正解は ' + currentAnswer;
+  feedback.className = 'feedback-banner ng show';
+  onMiss();
+}
+
+function onMiss() {
+  document.getElementById('miss' + miss).classList.add('used');
+  miss++;
+  if (miss >= 2) {
+    setTimeout(showResult, 1200);
+  } else {
+    setTimeout(nextQuestion, 1400);
+  }
+}
+
+/* ══════════════ RESULT ══════════════ */
+function showResult() {
+  clearTimer();
+  document.getElementById('result-score').textContent = score;
+  const best = getBest();
+  const isNew = score > best;
+  if (isNew) setBest(score);
+  const bestEl = document.getElementById('result-best');
+  bestEl.textContent = isNew ? '🎉 自己ベスト更新！' : '自己ベスト ' + Math.max(score, best) + '問';
+  bestEl.className = 'result-best' + (isNew ? ' new' : '');
+  // firebase未設定時の注記
+  document.getElementById('firebase-note').style.display = fbReady ? 'none' : 'block';
+  document.getElementById('nickname-area').style.display = fbReady ? 'block' : 'none';
+  document.getElementById('btn-submit-rank').style.display = fbReady ? 'block' : 'none';
+  document.getElementById('rank-submitted').style.display = 'none';
+  document.getElementById('btn-submit-rank').disabled = false;
+  showScreen('result');
+}
+
+/* ══════════════ RANKING ══════════════ */
+function submitRanking() {
+  if (!fbReady) return;
+  const name = document.getElementById('nickname-input').value.trim() || '名無し';
+  const btn = document.getElementById('btn-submit-rank');
+  btn.disabled = true;
+  db.ref('rankings').push({
+    name: name,
+    score: score,
+    ts: Date.now()
+  }).then(() => {
+    document.getElementById('rank-submitted').style.display = 'block';
+  }).catch(e => {
+    alert('投稿に失敗しました: ' + e.message);
+    btn.disabled = false;
+  });
+}
+
+function loadRanking() {
+  const list = document.getElementById('rank-list');
+  if (!fbReady) {
+    list.innerHTML = '<div class="rank-loading">Firebase未設定のためランキングを表示できません</div>';
+    return;
+  }
+  list.innerHTML = '<div class="rank-loading">読み込み中...</div>';
+  db.ref('rankings').orderByChild('score').limitToLast(20)
+    .once('value').then(snap => {
+      const items = [];
+      snap.forEach(c => items.push(c.val()));
+      items.sort((a, b) => b.score - a.score || a.ts - b.ts);
+      if (items.length === 0) {
+        list.innerHTML = '<div class="rank-loading">まだ記録がありません</div>';
+        return;
+      }
+      list.innerHTML = items.map((item, idx) => {
+        const posClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : '';
+        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1);
+        return `<div class="rank-item">
+          <div class="rank-pos ${posClass}">${medal}</div>
+          <div class="rank-name">${item.name}</div>
+          <div class="rank-score">${item.score}<span class="rank-score-unit">問</span></div>
+        </div>`;
+      }).join('');
+    }).catch(e => {
+      list.innerHTML = '<div class="rank-loading">読み込みエラー: ' + e.message + '</div>';
+    });
+}
+
+/* ══════════════ SNS SHARE ══════════════ */
+function shareX() {
+  const text = `駅オタクで${score}問正解しました！🚃\n\n1問5秒・2ミスでゲームオーバーの都道府県当てクイズ\nあなたは何問いける？\n\n#駅オタク #地理クイズ #鉄道好きと繋がりたい`;
+  const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text);
+  window.open(url, '_blank');
+}
+
+/* ══════════════ INIT ══════════════ */
+updateBestDisp();
+</script>
+</body>
+</html>
